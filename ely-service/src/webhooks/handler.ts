@@ -4,6 +4,7 @@ import { aiService } from '../services/ai';
 import { knowledgeService } from '../services/knowledge';
 import { guardrailService } from '../services/guardrails';
 import { leadService } from '../services/leads';
+import { getConfig } from '../config';
 import { db } from '../utils/db';
 import { checkRateLimit, getConversationState, setConversationState } from '../utils/redis';
 import { logger } from '../utils/logger';
@@ -63,7 +64,8 @@ export class WebhookHandler {
     // Rate limiting per contact
     const contactId = event.sender?.id;
     if (contactId) {
-      const withinLimit = await checkRateLimit(`contact:${contactId}`, 20, 60);
+      const { MAX_MESSAGES_PER_MINUTE } = getConfig();
+      const withinLimit = await checkRateLimit(`contact:${contactId}`, MAX_MESSAGES_PER_MINUTE, 60);
       if (!withinLimit) {
         logger.warn({ contactId, conversationId }, 'Rate limit exceeded for contact');
         await chatwootClient.sendMessage(

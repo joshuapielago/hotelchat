@@ -54,8 +54,8 @@ services:
   # Ely Admin Dashboard
   ely-admin:
     build:
-      context: ./ely-admin
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ely-admin/Dockerfile
     ports:
       - '3200:3200'
     environment:

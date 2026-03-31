@@ -10,6 +10,7 @@ const envSchema = z.object({
   CHATWOOT_BASE_URL: z.string(),
   CHATWOOT_BOT_TOKEN: z.string(),
   CHATWOOT_ACCOUNT_ID: z.coerce.number(),
+  CHATWOOT_WEBHOOK_SECRET: z.string().optional(),
   MAX_MESSAGES_PER_MINUTE: z.coerce.number().default(20),
   AI_CONFIDENCE_THRESHOLD: z.coerce.number().default(0.7),
 });
