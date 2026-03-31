@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Ely PostgreSQL Database
+  ely-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ely
+      POSTGRES_PASSWORD: ely_password
+      POSTGRES_DB: ely_db
+    ports:
+      - '5433:5432'
+    volumes:
+      - ely_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ely -d ely_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ely Redis (rate limiting, caching)
+  ely-redis:
+    image: redis:7-alpine
+    ports:
+      - '6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Ely AI Service
+  ely-service:
+    build:
+      context: ./ely-service
+      dockerfile: Dockerfile
+    ports:
+      - '3100:3100'
+    environment:
+      PORT: 3100
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ely:ely_password@ely-db:5432/ely_db
+      REDIS_URL: redis://ely-redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL:-http://localhost:3000}
+      CHATWOOT_BOT_TOKEN: ${CHATWOOT_BOT_TOKEN}
+      CHATWOOT_ACCOUNT_ID: ${CHATWOOT_ACCOUNT_ID:-1}
+    depends_on:
+      ely-db:
+        condition: service_healthy
+      ely-redis:
+        condition: service_healthy
+
+  # Ely Admin Dashboard
+  ely-admin:
+    build:
+      context: ./ely-admin
+      dockerfile: Dockerfile
+    ports:
+      - '3200:3200'
+    environment:
+      DATABASE_URL: postgresql://ely:ely_password@ely-db:5432/ely_db
+      ELY_SERVICE_URL: http://ely-service:3100
+      CHATWOOT_BASE_URL: ${CHATWOOT_BASE_URL:-http://localhost:3000}
+    depends_on:
+      ely-db:
+        condition: service_healthy
+
+volumes:
+  ely_postgres_data:
