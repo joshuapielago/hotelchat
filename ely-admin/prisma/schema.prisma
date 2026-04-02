@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Hotel {
+  id                 String            @id @default(cuid())
+  name               String
+  slug               String            @unique
+  timezone           String            @default("Asia/Manila")
+  languages          String[]          @default(["en", "fil"])
+  chatwootAccountId  Int               @map("chatwoot_account_id")
+  chatwootBotId      Int?              @map("chatwoot_bot_id")
+  chatwootBotToken   String?           @map("chatwoot_bot_token")
+  plan               String            @default("starter")
+  active             Boolean           @default(true)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  config             HotelConfig?
+  knowledgeEntries   KnowledgeEntry[]
+  leads              Lead[]
+  guardrailEvents    GuardrailEvent[]
+  aiInteractionLogs  AIInteractionLog[]
+
+  @@map("hotels")
+}
+
+model HotelConfig {
+  id                  String   @id @default(cuid())
+  hotelId             String   @unique @map("hotel_id")
+  aiPersonality       String   @default("warm_professional") @map("ai_personality")
+  welcomeMessage      String?  @map("welcome_message")
+  handoffMessage      String   @default("Let me connect you with our team. They'll be with you shortly.") @map("handoff_message")
+  escalationRules     Json     @default("{}") @map("escalation_rules")
+  competitorBlocklist String[] @default([]) @map("competitor_blocklist")
+  activePromotions    Json     @default("[]") @map("active_promotions")
+  maxHistoryTurns     Int      @default(10) @map("max_history_turns")
+  confidenceThreshold Float   @default(0.7) @map("confidence_threshold")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@map("hotel_configs")
+}
+
+model KnowledgeEntry {
+  id        String           @id @default(cuid())
+  hotelId   String           @map("hotel_id")
+  category  KnowledgeCategory
+  question  String
+  answer    String
+  language  String           @default("en")
+  tags      String[]         @default([])
+  sortOrder Int              @default(0) @map("sort_order")
+  active    Boolean          @default(true)
+  version   Int              @default(1)
+  updatedBy String?          @map("updated_by")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, category])
+  @@index([hotelId, language])
+  @@map("knowledge_entries")
+}
+
+enum KnowledgeCategory {
+  property_info
+  rooms_rates
+  amenities_services
+  policies
+  location_transport
+  dining
+  custom_faq
+  promotions
+}
+
+model Lead {
+  id                     String   @id @default(cuid())
+  hotelId                String   @map("hotel_id")
+  chatwootConversationId Int?     @map("chatwoot_conversation_id")
+  chatwootContactId      Int?     @map("chatwoot_contact_id")
+  email                  String?
+  phone                  String?
+  name                   String?
+  intent                 String?
+  sourceChannel          String?  @map("source_channel")
+  notes                  String?
+  capturedAt             DateTime @default(now()) @map("captured_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, capturedAt])
+  @@index([email])
+  @@index([phone])
+  @@map("leads")
+}
+
+model GuardrailEvent {
+  id                     String          @id @default(cuid())
+  hotelId                String          @map("hotel_id")
+  chatwootConversationId Int?            @map("chatwoot_conversation_id")
+  chatwootMessageId      Int?            @map("chatwoot_message_id")
+  type                   GuardrailType
+  severity               GuardrailSeverity
+  details                Json            @default("{}")
+  inputText              String?         @map("input_text")
+  outputText             String?         @map("output_text")
+  action                 String
+  createdAt              DateTime        @default(now()) @map("created_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, createdAt])
+  @@index([type])
+  @@map("guardrail_events")
+}
+
+enum GuardrailType {
+  prompt_injection
+  hallucination
+  competitor_mention
+  off_topic
+  inappropriate_content
+  system_prompt_leak
+  payment_info
+  confidence_low
+}
+
+enum GuardrailSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+model AIInteractionLog {
+  id                     String   @id @default(cuid())
+  hotelId                String   @map("hotel_id")
+  chatwootConversationId Int      @map("chatwoot_conversation_id")
+  chatwootMessageId      Int?     @map("chatwoot_message_id")
+  inputTokens            Int      @default(0) @map("input_tokens")
+  outputTokens           Int      @default(0) @map("output_tokens")
+  model                  String   @default("claude-haiku-4-5-20251001")
+  latencyMs              Int      @default(0) @map("latency_ms")
+  resolved               Boolean  @default(false)
+  handoffReason          String?  @map("handoff_reason")
+  detectedLanguage       String?  @map("detected_language")
+  detectedIntent         String?  @map("detected_intent")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, createdAt])
+  @@index([resolved])
+  @@map("ai_interaction_logs")
+}
